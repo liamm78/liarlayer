@@ -1,0 +1,63 @@
+import cv2
+import numpy as np
+import imutils
+from keras.preprocessing.image import img_to_array
+
+from imutils import paths
+from keras.models import load_model
+from PIL import Image
+import matplotlib.pyplot as plt
+
+labels = ['angry','disgust','fear','happy','neutral','sad','surprised']
+
+model = load_model('emotion1.h5')
+img = Image.open("neutraltest.jpg").convert('L').resize((48, 48))
+
+# Convert the image to numpy array and normalize it
+img = np.asarray(img)/255.0
+
+# Add an extra dimension to make it a batch of one image
+img = np.expand_dims(img, axis=0)
+
+# Predict the emotion of the image
+prediction = model.predict(img)
+predicted_label = np.argmax(prediction)
+confidence = np.max(prediction) * 100
+print(confidence, predicted_label)
+
+camera = cv2.VideoCapture(0)
+face_cascade = cv2.CascadeClassifier('./haarcascade_frontalface_default.xml')
+
+
+
+while True:
+    
+    grabbed, frame = camera.read()
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    frame_clone = frame.copy()
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5,minSize=(30,30),flags=cv2.CASCADE_SCALE_IMAGE)
+    for (x, y, width, height) in faces:   # Get the region of interest
+        cv2.rectangle(frame_clone,(x,y),(x+width,y+height),(0,255,0),2)
+            
+        roi = gray[y:y+height,x:x+width] # GETS THE FACE (REGION OF INTEREST) 
+                
+        roi = cv2.resize(roi, (48,48))
+        roi = roi.astype("float") / 255.0
+        roi = img_to_array(roi)
+        roi = np.expand_dims(roi, axis=0) #our actual input
+                
+        prob = model.predict(roi)[0]
+        result = np.argmax(prob) #find max index of array
+        predicted_label = labels[result]
+        cv2.putText(frame_clone, predicted_label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+        
+    cv2.imshow('Face', frame_clone)
+    
+
+camera.release()
+cv2.destroyAllWindows()
+
+
